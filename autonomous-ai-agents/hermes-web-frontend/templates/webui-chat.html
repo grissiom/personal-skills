@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes WebUI</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text-muted: #8b949e;
+    --accent: #58a6ff; --accent-hover: #79c0ff;
+    --user-msg: #1f6feb33; --assistant-msg: #161b22;
+    --code-bg: #1c2128; --danger: #f85149; --success: #3fb950;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --surface: #f6f8fa; --border: #d0d7de;
+    --text: #1f2328; --text-muted: #656d76;
+    --accent: #0969da; --accent-hover: #0550ae;
+    --user-msg: #ddf4ff; --assistant-msg: #f6f8fa;
+    --code-bg: #f6f8fa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 16px; font-weight: 600; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; }
+  .status-dot.disconnected { background: var(--danger); }
+  .header-actions { display: flex; gap: 8px; }
+  .header-actions button, .header-actions select {
+    background: none; border: 1px solid var(--border); color: var(--text-muted);
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  #messages { flex: 1; overflow-y: auto; padding: 16px 20px; scroll-behavior: smooth; }
+  .msg { max-width: 80%; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; line-height: 1.6; font-size: 14px; word-wrap: break-word; }
+  .msg.user { background: var(--user-msg); margin-left: auto; border-bottom-right-radius: 4px; }
+  .msg.assistant { background: var(--assistant-msg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.system { background: transparent; text-align: center; color: var(--text-muted); font-size: 12px; max-width: 100%; margin: 8px 0; }
+  .msg.error { background: #f8514911; border: 1px solid var(--danger); color: var(--danger); }
+  .msg pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+  .msg code { background: var(--code-bg); padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  .msg p { margin: 4px 0; }
+  .thinking-indicator { display: flex; gap: 4px; padding: 8px 0; align-items: center; }
+  .thinking-indicator span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
+  .thinking-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:0.3;transform:scale(.8)} 40%{opacity:1;transform:scale(1.2)} }
+  .input-area { padding: 12px 20px 16px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .input-wrapper { display: flex; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 4px; background: var(--bg); }
+  .input-wrapper:focus-within { border-color: var(--accent); }
+  #input { flex: 1; border: none; background: none; color: var(--text); padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit; resize: none; }
+  #send { background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  #send:disabled { opacity: 0.5; cursor: not-allowed; }
+  @media (max-width: 640px) { .msg { max-width: 95%; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <span class="status-dot" id="statusDot"></span>
+    <h1>Hermes WebUI</h1>
+    <span style="font-size:12px;color:var(--text-muted)">via API Server</span>
+  </div>
+  <div class="header-actions">
+    <button onclick="toggleTheme()" title="Toggle theme">&#127763;</button>
+    <button onclick="clearMessages()" title="Clear">&#128465;</button>
+    <button onclick="connect()" title="Reconnect">&#128260;</button>
+  </div>
+</div>
+<div class="error-banner" id="errorBanner"></div>
+<div id="messages"><div class="msg system">Welcome to Hermes Agent</div></div>
+<div class="input-area">
+  <div class="input-wrapper">
+    <textarea id="input" rows="1" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,200)+'px'"></textarea>
+    <button id="send" onclick="sendMessage()" disabled>Send</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+    <button onclick="quickAsk('/new')" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">/new</button>
+    <button onclick="quickAsk('Hello! What can you do?')" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">Hello</button>
+    <button onclick="quickAsk('Write a Python fibonacci function')" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">fib</button>
+  </div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8642';
+let KEY = localStorage.getItem('hermes_api_key') || '';
+let streaming = false;
+
+async function init() {
+  try {
+    let r = await fetch(BASE+'/v1/models', {headers:KEY?{'Authorization':'Bearer '+KEY}:{}});
+    if (r.ok) { document.getElementById('statusDot').className='status-dot'; return; }
+    if (r.status===401) promptKey();
+  } catch(e) { document.getElementById('statusDot').className='status-dot disconnected'; }
+}
+function promptKey() {
+  let k = prompt('Enter Hermes API Server key:');
+  if (k) { KEY=k; localStorage.setItem('hermes_api_key',k); init(); }
+}
+async function connect() {
+  try { await fetch(BASE+'/v1/models',{headers:KEY?{'Authorization':'Bearer '+KEY}:{}});
+    document.getElementById('statusDot').className='status-dot';
+  } catch(e) { document.getElementById('statusDot').className='status-dot disconnected'; }
+}
+async function sendMessage() {
+  let inp = document.getElementById('input'), txt = inp.value.trim();
+  if (!txt||streaming) return;
+  inp.value=''; inp.style.height='auto'; document.getElementById('send').disabled=true;
+  addMsg(txt,'user');
+  if (txt.startsWith('/')) { await cmd(txt); document.getElementById('send').disabled=false; return; }
+  streaming=true;
+  let mdDiv = document.createElement('div'); mdDiv.className='msg assistant';
+  document.getElementById('messages').appendChild(mdDiv);
+  let th = document.createElement('div'); th.className='thinking-indicator';
+  th.innerHTML='<span></span><span></span><span></span>'; mdDiv.appendChild(th); scrollB();
+  try {
+    let r = await fetch(BASE+'/v1/chat/completions',{
+      method:'POST', headers:{'Content-Type':'application/json',...(KEY?{'Authorization':'Bearer '+KEY}:{})},
+      body:JSON.stringify({model:'hermes-agent',messages:[{role:'user',content:txt}],stream:true})
+    });
+    if (!r.ok) { th.remove(); mdDiv.innerHTML='<p style="color:var(--danger)">Error '+r.status+'</p>'; return; }
+    let reader = r.body.getReader(), dec = new TextDecoder(), content='', buf='';
+    while(true) {
+      let {done,value} = await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      for(let line of buf.split('\n').slice(0,-1)) {
+        if(!line.startsWith('data: ')) continue;
+        let d=line.slice(6).trim(); if(d==='[DONE]') continue;
+        try{ let p=JSON.parse(d), delta=p.choices?.[0]?.delta?.content||'';
+          if(delta){content+=delta;th.remove();mdDiv.innerHTML=md(content);scrollB();}
+        }catch(e){}
+      }
+      buf=buf.split('\n').pop()||'';
+    }
+    if(!content){th.remove();mdDiv.innerHTML='<p style="color:var(--text-muted)">(empty)</p>';}
+  } catch(e) { th.remove(); mdDiv.innerHTML='<p style="color:var(--danger)">Error: '+e.message+'</p>'; }
+  streaming=false; document.getElementById('send').disabled=false;
+}
+async function cmd(c) {
+  if(c==='/new'||c==='/reset') { document.getElementById('messages').innerHTML='<div class="msg system">Reset</div>'; return; }
+  if(c==='/help') { addMsg('<code>/new</code> reset<br><code>/help</code> this<br><code>/key &lt;k&gt;</code> set key','assistant'); return; }
+  if(c.startsWith('/key ')){let k=c.slice(5).trim();if(k){KEY=k;localStorage.setItem('hermes_api_key',k);}addMsg('Key set','system');return;}
+}
+function addMsg(t,r){let d=document.createElement('div');d.className='msg '+r;d.innerHTML=md(t);document.getElementById('messages').appendChild(d);scrollB();}
+function toggleTheme(){let h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';}
+function clearMessages(){document.getElementById('messages').innerHTML='<div class="msg system">Cleared</div>';}
+function quickAsk(t){document.getElementById('input').value=t;sendMessage();}
+function scrollB(){setTimeout(()=>{let m=document.getElementById('messages');m.scrollTop=m.scrollHeight;},10);}
+function md(t){if(!t)return'';let h=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>'<pre><code>'+c.trim()+'</code></pre>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*]+)\*/g,'<em>$1</em>');return h.split('\n').filter(l=>l.trim()).map(l=>'<p>'+l+'</p>').join('');}
+init();
+</script>
+</body>
+</html>
