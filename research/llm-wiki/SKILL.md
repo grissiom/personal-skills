@@ -726,6 +726,9 @@ When ingesting multiple sources at once (after Pre-Ingest Scoping), batch the up
 When a wiki's `concepts/` directory grows beyond ~30 pages or spans 5+ distinct
 domains, reorganize flat pages into a tree of subdirectories by domain.
 
+> **For a worked example** (67 files, 11 subdirectories, pitfalls), load
+> `references/tree-organization-case-study.md`.
+
 **When to reorganize:**
 - User explicitly asks to "归类" or "整理成树状结构"
 - Lint reveals too many root-level pages making navigation unwieldy
@@ -978,6 +981,14 @@ programmatically with a single `execute_code` pass — don't patch each file ind
   shared-asset sites (WordPress, etc.). For bulk HTML downloads, use xargs+curl at P=20
   concurrency without `-p`, then extract and download unique images in a separate pass.
   Full workflow in `references/bulk-web-scraping.md`.
+- **Wikilink bulk-edit: `sed` with pipes needs `\|` escaping or a non-pipe delimiter.**
+  In `sed`, `|` is a literal character in BRE mode (default) but becomes regex alternation
+  in ERE (`sed -E`). When wikilinks contain `|` as display-text separator
+  (e.g., `[[page|display]]`), either escape the pipe with `\|` and use a non-pipe
+  delimiter: `sed 's@\[\[old\|display\]\]@[[new|display]]@g'` — or use `execute_code`
+  with Python's `re.sub`, which handles this cleanly without shell escaping headaches.
+  Without proper escaping, `sed` can drop the `|` separator, corrupting wikilinks into
+  `[[pathdisplay text]]`. See `references/tree-organization-case-study.md`.
 - **`[[../index]]` and `[[../README]]` never resolve.** Wikilinks with `../` parent references
   (e.g., `[[../index|Wiki 索引]]`) are broken in every renderer. Replace with standard
   Markdown links: `[Wiki 索引](index.md)`. This most often appears in `queries/todo.md`.
