@@ -1,1 +1,40 @@
+# Ignore everything by default — hub-installed skills are auto-excluded
 *
+
+# === Self-created/modified skills (tracked) ===
+# Category dirs: un-ignore parent, re-ignore siblings, un-ignore user skill tree
+
+!autonomous-ai-agents/
+autonomous-ai-agents/*
+!autonomous-ai-agents/hermes-agent/
+!autonomous-ai-agents/hermes-agent/**
+!autonomous-ai-agents/hermes-desktop/
+!autonomous-ai-agents/hermes-desktop/**
+!autonomous-ai-agents/hermes-web-frontend/
+!autonomous-ai-agents/hermes-web-frontend/**
+
+!linux-desktop/
+!linux-desktop/**
+
+!personal-wiki/
+!personal-wiki/**
+
+!productivity/
+productivity/*
+!productivity/weixin-article-to-wiki/
+!productivity/weixin-article-to-wiki/**
+
+!research/
+research/*
+!research/ai-hardware-research/
+!research/ai-hardware-research/**
+!research/llm-wiki/
+!research/llm-wiki/**
+
+!software-development/
+software-development/*
+!software-development/scrape-website-mirror/
+!software-development/scrape-website-mirror/**
+
+# Track gitignore itself
+!.gitignore
